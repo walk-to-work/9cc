@@ -5,13 +5,20 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
-#define PRINT(fmt , val )\
-	printf( fmt  , val );
+
+void PRINT( char *fmt , ... ){
+	va_list arg;
+	va_start( arg , fmt );
+	vprintf( fmt , arg);
+}
+
 #else
-#define PRINT(fmt , val)
+
+void PRINT( char *fmt , ... ){}
+
 #endif
 
 
@@ -20,6 +27,7 @@ typedef enum{
 	TK_RESERVED,	//記号
 	TK_NUM,			//整数トークン
 	TK_EOF,			//入力終わりを表すトークン
+	TK_ERR, 		//エラー処理用
 } TokenKind;
 
 typedef struct Token Token;
@@ -99,7 +107,7 @@ Token *tokenize( char *p ){
 
 	while ( *p ){
 
-		PRINT("p : %c\n" , *p );
+		PRINT("p : %s\n" , p );
 
 		// スペース:読み飛ばす
 		if(isspace(*p)){
@@ -115,7 +123,7 @@ Token *tokenize( char *p ){
 			cur->val = strtol(p , &p , 10 );
 		}
 		else{
-			error_at( token->str , "トークナイズできません");
+			error_at( p , "トークナイズできません");
 		}
 
 	}
@@ -143,11 +151,15 @@ int main( int argc , char **argv ){
 	printf(".global main\n");
 	printf("main:\n");
 
+	
+	PRINT("kind:%d str:%s next:%d" , token->kind , token->str , token->next );
 	//式の最初は数でなければならないので，それをチェックして最初のmov命令を出力
 	printf("  mov rax, %d\n" , expect_number() );
 
 	// `+ <数>`または`- <数>`というトークンの並びを消費しつつアセンブリを出力
 	while ( !at_eof() ){
+
+		PRINT("kind:%d str:%s next:%d" , token->kind , token->str , token->next );
 
 		if ( consume('+')){
 			printf("  add rax, %d\n" , expect_number());
