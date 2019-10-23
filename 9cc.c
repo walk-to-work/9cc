@@ -5,6 +5,17 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define DEBUG 1
+
+#if DEBUG
+#define PRINT(fmt , val )\
+	printf( fmt  , val );
+#else
+#define PRINT(fmt , val)
+#endif
+
+
+/*** トークナイザ ***/
 typedef enum{
 	TK_RESERVED,	//記号
 	TK_NUM,			//整数トークン
@@ -23,11 +34,20 @@ struct Token{
 //現在着目しているトークン
 Token *token;
 
-void error( char *fmt , ... ){
+// 入力プログラム
+char *user_input;
+
+// エラー箇所を報告する
+void error_at( char *loc , char *fmt , ... ){
 	va_list ap;
 	va_start(ap , fmt);
+
+	int pos = loc - user_input;
+	fprintf( stderr , "%s\n" , user_input );
+	fprintf( stderr , "%*s" , pos , "" ); //pos個の空白を表示
+	fprintf( stderr , "^ ");
 	vfprintf( stderr , fmt , ap );
-	fprintf( stderr , "\n");
+	fprintf( stderr , "\n" );
 	exit(1);
 }
 
@@ -44,7 +64,7 @@ bool consume(char op){
 //それ以外の場合にはエラーを報告する．
 void expect( char op ){
 	if( token->kind != TK_RESERVED || token->str[0] != op )
-		error("'%c'ではありません" , op );
+		error_at( token->str , "'%c'ではありません" , op );
 	token = token->next;
 }
 
@@ -52,7 +72,7 @@ void expect( char op ){
 //それ以外の場合にはエラーを報告する．
 int expect_number(){
 	if( token->kind != TK_NUM )
-		error("数ではありません");
+		error_at( token->str , "数ではありません");
 	int val = token->val;
 	token = token->next;
 	return val;
@@ -79,6 +99,8 @@ Token *tokenize( char *p ){
 
 	while ( *p ){
 
+		PRINT("p : %c\n" , *p );
+
 		// スペース:読み飛ばす
 		if(isspace(*p)){
 			p++;
@@ -93,7 +115,7 @@ Token *tokenize( char *p ){
 			cur->val = strtol(p , &p , 10 );
 		}
 		else{
-			error("トークナイズできません");
+			error_at( token->str , "トークナイズできません");
 		}
 
 	}
@@ -102,6 +124,7 @@ Token *tokenize( char *p ){
 	return head.next;
 
 }
+/*** トークナイザおわり ***/
 
 int main( int argc , char **argv ){
 	if( argc != 2 ){
@@ -109,8 +132,11 @@ int main( int argc , char **argv ){
 		return 1;
 	}
 
+	user_input = argv[1];
+
 	// トークナイズする
 	token = tokenize(argv[1]);
+
 
 	// アセンブリの前半部分を出力
 	printf(".intel_syntax noprefix\n");
