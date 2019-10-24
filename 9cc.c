@@ -5,11 +5,137 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define DEBUG 0
+
+#if DEBUG
+
+void PRINT( char *fmt , ... ){
+	va_list arg;
+	va_start( arg , fmt );
+	vprintf( fmt , arg);
+}
+
+#else
+
+void PRINT( char *fmt , ... ){}
+
+#endif
+
+/*** トークナイザ ***/
 typedef enum{
-	TK_RESERVED,	//記号
-	TK_NUM,			//整数トークン
-	TK_EOF,			//入力終わりを表すトークン
+	TK_RESERVED,  //記号
+	TK_NUM,       //整数トークン
+	TK_EOF,       //入力終わりを表すトークン
+	TK_ERR,       //エラー処理用
 } TokenKind;
+
+typedef enum{
+	ND_ADD, // +
+	ND_SUB, // -
+	ND_MUL, // *
+	ND_DIV, // /
+	ND_NUM, // 整数
+} NodeKind;
+
+typedef struct Node Node;
+
+struct Node{
+	NodeKind kind; // ノードの型
+	Node *lhs;     // 左辺
+	Node *rhs;     // 右辺
+	int val;       // kindがND_NUMのときのみ使う
+};
+
+
+Node *new_node( NodeKind kind , Node *lhs , Node *rhs );
+Node *new_node_num(int val);
+Node *expr();
+Node *mul();
+Node *primary();
+bool consume(char op);
+void expect( char op );
+int expect_number();
+
+Node *new_node( NodeKind kind , Node *lhs , Node *rhs ){
+	Node *node = calloc( 1 , sizeof(Node));
+	node->kind = kind;
+	node->lhs  = lhs;
+	node->rhs  = rhs;
+	return node;
+}
+
+Node *new_node_num(int val){
+	Node *node = calloc( 1 , sizeof( Node ));
+	node->kind = ND_NUM;
+	node->val  = val;
+	return node;
+}
+
+Node *expr(){
+	Node *node = mul();
+	for (;;){
+		if( consume('+'))
+			node = new_node( ND_ADD , node , mul() );
+		else if (consume('-'))
+			node = new_node( ND_SUB , node , mul() );
+		else
+			return node;
+	}
+}
+
+Node *mul(){
+	Node *node = primary();
+	for(;;){
+		if ( consume('*') )
+			node = new_node( ND_MUL , node , primary() );
+		else if( consume('/') )
+			node = new_node( ND_DIV , node , primary() );
+		else 
+			return node;
+	}
+}
+
+Node *primary(){
+	if( consume('(') ){
+		Node *node = expr();
+		expect(')');
+		return node;
+	}
+	return new_node_num(expect_number());
+}
+
+void gen(Node *node){
+	if( node->kind == ND_NUM ){
+		printf("  push %d\n" , node->val );
+		return;
+	}
+
+	gen( node->lhs );
+	gen( node->rhs );
+
+	printf("  pop rdi\n");
+	printf("  pop rax\n");
+
+	switch ( node->kind ){
+		case ND_ADD:
+			printf("  add rax, rdi\n");
+			break;
+		case ND_SUB:
+			printf("  sub rax, rdx\n");
+			break;
+		case ND_MUL:
+			printf("  imul rax, rdi\n");
+			break;
+		case ND_DIV:
+			printf("  cqo\n");
+			printf("  idiv rdi\n");
+			break;
+	}
+
+	printf("  push rax\n");
+
+
+}
 
 typedef struct Token Token;
 
@@ -23,11 +149,20 @@ struct Token{
 //現在着目しているトークン
 Token *token;
 
-void error( char *fmt , ... ){
+// 入力プログラム
+char *user_input;
+
+// エラー箇所を報告する
+void error_at( char *loc , char *fmt , ... ){
 	va_list ap;
 	va_start(ap , fmt);
+
+	int pos = loc - user_input;
+	fprintf( stderr , "%s\n" , user_input );
+	fprintf( stderr , "%*s" , pos , "" ); //pos個の空白を表示
+	fprintf( stderr , "^ ");
 	vfprintf( stderr , fmt , ap );
-	fprintf( stderr , "\n");
+	fprintf( stderr , "\n" );
 	exit(1);
 }
 
@@ -44,7 +179,7 @@ bool consume(char op){
 //それ以外の場合にはエラーを報告する．
 void expect( char op ){
 	if( token->kind != TK_RESERVED || token->str[0] != op )
-		error("'%c'ではありません" , op );
+		error_at( token->str , "'%c'ではありません" , op );
 	token = token->next;
 }
 
@@ -52,7 +187,7 @@ void expect( char op ){
 //それ以外の場合にはエラーを報告する．
 int expect_number(){
 	if( token->kind != TK_NUM )
-		error("数ではありません");
+		error_at( token->str , "数ではありません");
 	int val = token->val;
 	token = token->next;
 	return val;
@@ -79,6 +214,8 @@ Token *tokenize( char *p ){
 
 	while ( *p ){
 
+		PRINT("p : %s\n" , p );
+
 		// スペース:読み飛ばす
 		if(isspace(*p)){
 			p++;
@@ -93,7 +230,7 @@ Token *tokenize( char *p ){
 			cur->val = strtol(p , &p , 10 );
 		}
 		else{
-			error("トークナイズできません");
+			error_at( p , "トークナイズできません");
 		}
 
 	}
@@ -102,6 +239,7 @@ Token *tokenize( char *p ){
 	return head.next;
 
 }
+/*** トークナイザおわり ***/
 
 int main( int argc , char **argv ){
 	if( argc != 2 ){
@@ -109,19 +247,26 @@ int main( int argc , char **argv ){
 		return 1;
 	}
 
+	user_input = argv[1];
+
 	// トークナイズする
 	token = tokenize(argv[1]);
+
 
 	// アセンブリの前半部分を出力
 	printf(".intel_syntax noprefix\n");
 	printf(".global main\n");
 	printf("main:\n");
 
+	
+	PRINT("kind:%d str:%s next:%d" , token->kind , token->str , token->next );
 	//式の最初は数でなければならないので，それをチェックして最初のmov命令を出力
 	printf("  mov rax, %d\n" , expect_number() );
 
 	// `+ <数>`または`- <数>`というトークンの並びを消費しつつアセンブリを出力
 	while ( !at_eof() ){
+
+		PRINT("kind:%d str:%s next:%d" , token->kind , token->str , token->next );
 
 		if ( consume('+')){
 			printf("  add rax, %d\n" , expect_number());
