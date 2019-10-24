@@ -50,6 +50,7 @@ struct Node{
 Node *new_node( NodeKind kind , Node *lhs , Node *rhs );
 Node *new_node_num(int val);
 Node *expr();
+Node *unary();
 Node *mul();
 Node *primary();
 bool consume(char op);
@@ -88,14 +89,23 @@ Node *expr(){
 
 Node *mul(){
 	PRINT("do: %s\n" ,  __FUNCTION__ );
-	Node *node = primary();
+	Node *node = unary();
 	for(;;){
 		if ( consume('*') )
-			node = new_node( ND_MUL , node , primary() );
+			node = new_node( ND_MUL , node , unary() );
 		else if( consume('/') )
-			node = new_node( ND_DIV , node , primary() );
+			node = new_node( ND_DIV , node , unary() );
 		else 
 			return node;
+	}
+}
+
+Node *unary(){
+	PRINT("do: %s\n" ,  __FUNCTION__ );
+	for(;;){
+		if( consume('+') ) return primary() ;
+		if( consume('-') ) return new_node( ND_SUB , new_node_num(0) , primary() );
+		return primary();
 	}
 }
 
@@ -191,8 +201,8 @@ void expect( char op ){
 //次のトークンが期待している記号のときには，トークンを1つ読み進めてその数値を返す．
 //それ以外の場合にはエラーを報告する．
 int expect_number(){
-	if( token->kind != TK_NUM )
-		error_at( token->str , "数ではありません");
+	if( token->kind != TK_NUM && token->kind != TK_RESERVED )
+		error_at( token->str , "数又は演算子ではありません");
 	int val = token->val;
 	token = token->next;
 	return val;
