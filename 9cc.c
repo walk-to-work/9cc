@@ -7,20 +7,6 @@
 
 #define DEBUG 0
 
-#if DEBUG
-
-void PRINT( char *fmt , ... ){
-	va_list arg;
-	va_start( arg , fmt );
-	vprintf( fmt , arg);
-}
-
-#else
-
-void PRINT( char *fmt , ... ){}
-
-#endif
-
 /*** トークナイザ ***/
 typedef enum{
 	TK_RESERVED,  //記号
@@ -28,6 +14,20 @@ typedef enum{
 	TK_EOF,       //入力終わりを表すトークン
 	TK_ERR,       //エラー処理用
 } TokenKind;
+
+typedef struct Token Token;
+
+struct Token{
+	TokenKind kind; //Tokenの型
+	Token *next;    //次の入力トークン
+	int val;        //kindがTK_NUMの場合，その数値
+	char *str;      //トークン文字列
+	int len;        //トークンの長さ
+};
+
+//現在見ているトークン
+Token *token;
+
 
 typedef enum{
 	ND_EQU,
@@ -42,6 +42,50 @@ typedef enum{
 	ND_DIV, // /
 	ND_NUM, // 整数
 } NodeKind;
+
+#if DEBUG
+
+void PRINT( char *fmt , ... ){
+	va_list arg;
+	va_start( arg , fmt );
+	vprintf( fmt , arg);
+}
+
+char *KIND_CHECK( int KIND ){
+	switch(KIND){
+		case ND_HEQ : 
+			return "ND_HEQ";
+		case ND_SUB :
+			return "ND_SUB";
+		case ND_NEQ :
+			return "ND_NEQ";
+		case ND_EQU :
+			return "ND_EQU";
+		case ND_ADD :
+			return "ND_ADD";
+		case ND_NUM :
+			return "ND_NUM";
+		case ND_DIV :
+			return "ND_DIV";
+		case ND_HIG : 
+			return "ND_HIG";
+		case ND_LEQ :
+			return "ND_LEQ";
+		case ND_LOW :
+			return "ND_LOW";
+		case ND_MUL :
+			return "ND_MUL";
+		default:
+			return "unsupported kind";
+	}
+}
+
+#else
+
+void PRINT( char *fmt , ... ){}
+char *KIND_CHECK( int king){}
+
+#endif
 
 typedef struct Node Node;
 
@@ -68,7 +112,7 @@ void expect( char *op );
 int expect_number();
 
 Node *new_node( NodeKind kind , Node *lhs , Node *rhs ){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = calloc( 1 , sizeof(Node));
 	node->kind = kind;
 	node->lhs  = lhs;
@@ -77,7 +121,7 @@ Node *new_node( NodeKind kind , Node *lhs , Node *rhs ){
 }
 
 Node *new_node_num(int val){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = calloc( 1 , sizeof( Node ));
 	node->kind = ND_NUM;
 	node->val  = val;
@@ -85,39 +129,44 @@ Node *new_node_num(int val){
 }
 
 Node *expr(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = equality();
 	return node;
 }
 
 Node *equality(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
+
 	Node *node = relational();
 	for(;;){
 		if( consume("==") )
 			node = new_node( ND_EQU , node , relational() );
-		if( consume("!=") )
+		else if( consume("!=") )
 			node = new_node( ND_NEQ , node , relational() );
+		else
+			return node;
 	}
 }
 
 Node *relational(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = add();
 	for(;;){
 		if( consume("<") )
 			node = new_node( ND_LOW , node , add() );
-		if( consume("<=") )
+		else if( consume("<=") )
 			node = new_node( ND_LEQ , node , add() );
-		if( consume(">") )
+		else if( consume(">") )
 			node = new_node( ND_HIG , node , add() );
-		if( consume(">=") )
+		else if( consume(">=") )
 			node = new_node( ND_HEQ , node , add() );
+		else
+			return node;
 	}
 }
 
 Node *add(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = mul();
 	for (;;){
 		if( consume("+"))
@@ -130,7 +179,8 @@ Node *add(){
 }
 
 Node *mul(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
+
 	Node *node = unary();
 	for(;;){
 		if ( consume("*") )
@@ -143,7 +193,7 @@ Node *mul(){
 }
 
 Node *unary(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	for(;;){
 		if( consume("+") ) return primary() ;
 		if( consume("-") ) return new_node( ND_SUB , new_node_num(0) , primary() );
@@ -152,16 +202,20 @@ Node *unary(){
 }
 
 Node *primary(){
-	PRINT("do: %s\n" ,  __FUNCTION__ );
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	if( consume("(") ){
 		Node *node = expr();
 		expect(")");
 		return node;
 	}
+
 	return new_node_num(expect_number());
 }
 
 void gen(Node *node){
+
+	PRINT("kind : %s\n" , KIND_CHECK(node->kind ));
+
 	if( node->kind == ND_NUM ){
 		printf("  push %d\n" , node->val );
 		return;
@@ -187,6 +241,11 @@ void gen(Node *node){
 			printf("  cqo\n");
 			printf("  idiv rdi\n");
 			break;
+		case ND_EQU:
+			printf("  cmp rax, rdi\n");
+			printf("  sete al\n");
+			printf("  movzb rax, al\n");
+			break;
 	}
 
 	printf("  push rax\n");
@@ -194,18 +253,6 @@ void gen(Node *node){
 
 }
 
-typedef struct Token Token;
-
-struct Token{
-	TokenKind kind; //Tokenの型
-	Token *next;    //次の入力トークン
-	int val;        //kindがTK_NUMの場合，その数値
-	char *str;      //トークン文字列
-	int len;        //トークンの長さ
-};
-
-//現在着目しているトークン
-Token *token;
 
 // 入力プログラム
 char *user_input;
@@ -231,7 +278,6 @@ bool consume(char *op){
 			|| strlen(op) != token->len
 			|| memcmp(token->str , op , token->len ))
 		return false;
-
 	token = token->next;
 	return true;
 }
@@ -261,10 +307,11 @@ bool at_eof(){
 }
 
 //新しいトークンを作成してcurに繋げる
-Token *new_token( TokenKind kind , Token *cur , char *str ){
+Token *new_token( TokenKind kind , Token *cur , char *str , unsigned int len ){
 	Token *tok = calloc( 1 , sizeof(Token) );
 	tok->kind = kind;
 	tok->str =  str;
+	tok->len =  len;
 	cur->next = tok;
 	return tok;
 }
@@ -281,13 +328,14 @@ Token *tokenize( char *p ){
 		if(isspace(*p)){
 			p++;
 		}
-		else if( strncmp( p , "==" , 2 )
-				|| strncmp( p , "!=" , 2)
-				|| strncmp( p , ">=" , 2 )
-				|| strncmp( p , "<=" , 2 )
+		else if( strncmp( p , "==" , 2 ) == 0
+				|| strncmp( p , "!=" , 2) == 0
+				|| strncmp( p , ">=" , 2 ) == 0
+				|| strncmp( p , "<=" , 2 ) == 0
 				)
 		{
-			cur = new_token(TK_RESERVED , cur , p  );
+			PRINT("DONE : 2str\n");
+			cur = new_token(TK_RESERVED , cur , p , 2 );
 			p += 2;
 		}
 		// + , - , * , / : 符号・比較トークンを接続
@@ -300,12 +348,14 @@ Token *tokenize( char *p ){
 				|| *p == '>'
 				|| *p == '<'
 			   ){
-			cur = new_token(TK_RESERVED , cur , p++ );
+			PRINT("DONE : 1str\n");
+			cur = new_token(TK_RESERVED , cur , p++ , 1 );
 		}
 		// 数値    : 数トークンを追加
 		else if( isdigit(*p) ){
-			cur = new_token(TK_NUM , cur , p );
-			cur->val = strtol(p , &p , 10 );
+			PRINT("DONE : digit\n");
+			cur = new_token(TK_NUM , cur , p , 1 );
+			cur->val = strtol(p , &p , 0 );
 		}
 		else{
 			error_at( p , "トークナイズできません");
@@ -313,7 +363,7 @@ Token *tokenize( char *p ){
 
 	}
 
-	new_token( TK_EOF , cur , p );
+	new_token( TK_EOF , cur , p , 0);
 	return head.next;
 }
 /*** トークナイザおわり ***/
