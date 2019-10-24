@@ -30,6 +30,12 @@ typedef enum{
 } TokenKind;
 
 typedef enum{
+	ND_EQU,
+	ND_NEQ,
+	ND_LOW,
+	ND_LEQ,
+	ND_HIG,
+	ND_HEQ,
 	ND_ADD, // +
 	ND_SUB, // -
 	ND_MUL, // *
@@ -50,11 +56,15 @@ struct Node{
 Node *new_node( NodeKind kind , Node *lhs , Node *rhs );
 Node *new_node_num(int val);
 Node *expr();
+Node *equality();
+Node *relational();
+Node *add();
 Node *unary();
 Node *mul();
 Node *primary();
-bool consume(char op);
-void expect( char op );
+
+bool consume(char *op);
+void expect( char *op );
 int expect_number();
 
 Node *new_node( NodeKind kind , Node *lhs , Node *rhs ){
@@ -76,11 +86,43 @@ Node *new_node_num(int val){
 
 Node *expr(){
 	PRINT("do: %s\n" ,  __FUNCTION__ );
+	Node *node = equality();
+	return node;
+}
+
+Node *equality(){
+	PRINT("do: %s\n" ,  __FUNCTION__ );
+	Node *node = relational();
+	for(;;){
+		if( consume("==") )
+			node = new_node( ND_EQU , node , relational() );
+		if( consume("!=") )
+			node = new_node( ND_NEQ , node , relational() );
+	}
+}
+
+Node *relational(){
+	PRINT("do: %s\n" ,  __FUNCTION__ );
+	Node *node = add();
+	for(;;){
+		if( consume("<") )
+			node = new_node( ND_LOW , node , add() );
+		if( consume("<=") )
+			node = new_node( ND_LEQ , node , add() );
+		if( consume(">") )
+			node = new_node( ND_HIG , node , add() );
+		if( consume(">=") )
+			node = new_node( ND_HEQ , node , add() );
+	}
+}
+
+Node *add(){
+	PRINT("do: %s\n" ,  __FUNCTION__ );
 	Node *node = mul();
 	for (;;){
-		if( consume('+'))
+		if( consume("+"))
 			node = new_node( ND_ADD , node , mul() );
-		else if (consume('-'))
+		else if (consume("-"))
 			node = new_node( ND_SUB , node , mul() );
 		else
 			return node;
@@ -91,9 +133,9 @@ Node *mul(){
 	PRINT("do: %s\n" ,  __FUNCTION__ );
 	Node *node = unary();
 	for(;;){
-		if ( consume('*') )
+		if ( consume("*") )
 			node = new_node( ND_MUL , node , unary() );
-		else if( consume('/') )
+		else if( consume("/") )
 			node = new_node( ND_DIV , node , unary() );
 		else 
 			return node;
@@ -103,17 +145,17 @@ Node *mul(){
 Node *unary(){
 	PRINT("do: %s\n" ,  __FUNCTION__ );
 	for(;;){
-		if( consume('+') ) return primary() ;
-		if( consume('-') ) return new_node( ND_SUB , new_node_num(0) , primary() );
+		if( consume("+") ) return primary() ;
+		if( consume("-") ) return new_node( ND_SUB , new_node_num(0) , primary() );
 		return primary();
 	}
 }
 
 Node *primary(){
 	PRINT("do: %s\n" ,  __FUNCTION__ );
-	if( consume('(') ){
+	if( consume("(") ){
 		Node *node = expr();
-		expect(')');
+		expect(")");
 		return node;
 	}
 	return new_node_num(expect_number());
@@ -239,8 +281,25 @@ Token *tokenize( char *p ){
 		if(isspace(*p)){
 			p++;
 		}
-		// + , - , * , / : 符号トークンを接続
-		else if( *p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')' ){
+		else if( strncmp( p , "==" , 2 )
+				|| strncmp( p , "!=" , 2)
+				|| strncmp( p , ">=" , 2 )
+				|| strncmp( p , "<=" , 2 )
+				)
+		{
+			cur = new_token(TK_RESERVED , cur , p  );
+			p += 2;
+		}
+		// + , - , * , / : 符号・比較トークンを接続
+		else if( *p == '+' 
+				|| *p == '-' 
+				|| *p == '*' 
+				|| *p == '/' 
+				|| *p == '(' 
+				|| *p == ')' 
+				|| *p == '>'
+				|| *p == '<'
+			   ){
 			cur = new_token(TK_RESERVED , cur , p++ );
 		}
 		// 数値    : 数トークンを追加
@@ -256,7 +315,6 @@ Token *tokenize( char *p ){
 
 	new_token( TK_EOF , cur , p );
 	return head.next;
-
 }
 /*** トークナイザおわり ***/
 
