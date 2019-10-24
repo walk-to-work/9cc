@@ -43,14 +43,6 @@ typedef enum{
 	ND_NUM, // 整数
 } NodeKind;
 
-#if DEBUG
-
-void PRINT( char *fmt , ... ){
-	va_list arg;
-	va_start( arg , fmt );
-	vprintf( fmt , arg);
-}
-
 char *KIND_CHECK( int KIND ){
 	switch(KIND){
 		case ND_HEQ : 
@@ -76,14 +68,22 @@ char *KIND_CHECK( int KIND ){
 		case ND_MUL :
 			return "ND_MUL";
 		default:
-			return "unsupported kind";
+			return "???";
 	}
 }
 
+
+
+#if DEBUG
+
+void PRINT( char *fmt , ... ){
+	va_list arg;
+	va_start( arg , fmt );
+	vprintf( fmt , arg);
+}
 #else
 
 void PRINT( char *fmt , ... ){}
-char *KIND_CHECK( int king){}
 
 #endif
 
@@ -152,14 +152,14 @@ Node *relational(){
 	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = add();
 	for(;;){
-		if( consume("<") )
-			node = new_node( ND_LOW , node , add() );
-		else if( consume("<=") )
+		if( consume("<=") )
 			node = new_node( ND_LEQ , node , add() );
-		else if( consume(">") )
-			node = new_node( ND_HIG , node , add() );
 		else if( consume(">=") )
 			node = new_node( ND_HEQ , node , add() );
+		else if( consume(">") )
+			node = new_node( ND_HIG , node , add() );
+		else if( consume("<") )
+			node = new_node( ND_LOW , node , add() );
 		else
 			return node;
 	}
@@ -245,6 +245,35 @@ void gen(Node *node){
 			printf("  cmp rax, rdi\n");
 			printf("  sete al\n");
 			printf("  movzb rax, al\n");
+			break;
+		case ND_NEQ:
+			printf("  cmp rax, rdi\n");
+			printf("  setne al\n");
+			printf("  movzb rax, al\n");
+			break;
+		case ND_LOW:
+			printf("  cmp rax, rdi\n");
+			printf("  setl al\n");
+			printf("  movzb rax, al\n");
+			break;
+		case ND_LEQ:
+			printf("  cmp rax, rdi\n");
+			printf("  setle al\n");
+			printf("  movzb rax, al\n");
+			break;
+		case ND_HIG:
+			printf("  cmp rdi, rax\n");
+			printf("  setl al\n");
+			printf("  movzb rax, al\n");
+			break;
+		case ND_HEQ:
+			printf("  cmp rdi, rax\n");
+			printf("  setle al\n");
+			printf("  movzb rax, al\n");
+			break;
+		default:
+			printf("unsupported kind %s\n" , KIND_CHECK(node->kind));
+			exit(1);
 			break;
 	}
 
