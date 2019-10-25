@@ -43,7 +43,10 @@ try 1 '2 <= 2;'
 try 1 '1 <= 2;'
 try 1 'a=1;'
 try 1 'a=b=1;'
-try 1 'a=1; a+1;'
+try 2 'b=2;'
+try 2 'a=1; a+1;'
+try 7 'a=b=3; c=1; a+b+c;' 
+try 3 'a=b=1; c=3; (a+b)*c/2;'
 
 
 echo OK

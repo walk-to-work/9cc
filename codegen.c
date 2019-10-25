@@ -10,14 +10,12 @@ void gen_lval( Node *node ){
 }
 
 void gen(Node *node){
-	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
-	PRINT("kind : %s\n" , KIND_CHECK(node->kind ));
-
 	switch ( node->kind ){
 		case ND_NUM:
 			printf("  push %d\n" , node->val );
 			return;
 		case ND_LVAR:
+			gen_lval(node);
 			printf("  pop rax\n");
 			printf("  mov rax, [rax]\n");
 			printf("  push rax\n");

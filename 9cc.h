@@ -2,7 +2,7 @@
 
 #define NINE_CC_H
 
-#define DEBUG 1
+#define DEBUG 0
 
 #include <ctype.h>
 #include <stdarg.h>
