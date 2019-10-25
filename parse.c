@@ -17,10 +17,36 @@ Node *new_node_num(int val){
 	return node;
 }
 
-Node *expr(){
+Node *assign(){
 	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = equality();
+	if ( consume("=") ){
+		node = new_node( ND_ASSIGN , node , assign() );
+	}
 	return node;
+}
+
+Node *expr(){
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
+	return assign();
+}
+
+Node *stmt(){
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
+	Node *node = expr();
+	expect(";");
+	return node;
+}
+
+void program(){
+	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
+	int i = 0;
+	while ( !at_eof() ){
+		code[i] = stmt();
+		PRINT("kind : %s\n" , KIND_CHECK(code[i]->kind ));
+		i++;
+	}
+	code[i] = NULL;
 }
 
 Node *equality(){
@@ -69,7 +95,6 @@ Node *add(){
 
 Node *mul(){
 	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
-
 	Node *node = unary();
 	for(;;){
 		if ( consume("*") )
@@ -98,7 +123,16 @@ Node *primary(){
 		return node;
 	}
 
-	return new_node_num(expect_number());
+	if( token->kind == TK_NUM )
+		return new_node_num(expect_number());
+
+	Token *tok = consume_ident();
+	if(tok){
+		Node *node = calloc( 1 , sizeof(Node) );
+		node->kind = ND_LVAR;
+		node->offset = (tok->str[0] - 'a' + 1 ) * 8;
+		return node;
+	}
 }
 
 
