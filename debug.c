@@ -24,9 +24,21 @@ char *KIND_CHECK( int KIND ){
 			return "ND_LOW";
 		case ND_MUL :
 			return "ND_MUL";
+		case ND_ASSIGN : 
+			return "ND_ASSIGN";
+		case ND_LVAR:
+			return "ND_LVAR";
 		default:
-			return "???";
+			return "unsupported kind";
 	}
+}
+
+void error(char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	exit(1);
 }
 
 // エラー箇所を報告する

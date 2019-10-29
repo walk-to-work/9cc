@@ -11,6 +11,14 @@ bool consume(char *op){
 	return true;
 }
 
+Token *consume_ident(){
+	if( token->kind != TK_IDENT )
+		return false;
+	Token *now = token;
+	token = token->next;
+	return now;
+}
+
 //次のトークンが期待している記号のときには，トークンを1つ読み進める．
 //それ以外の場合にはエラーを報告する．
 void expect( char *op ){
@@ -63,7 +71,6 @@ Token *tokenize( char *p ){
 				|| strncmp( p , "<=" , 2 ) == 0
 				)
 		{
-			PRINT("DONE : 2str\n");
 			cur = new_token(TK_RESERVED , cur , p , 2 );
 			p += 2;
 		}
@@ -76,15 +83,18 @@ Token *tokenize( char *p ){
 				|| *p == ')' 
 				|| *p == '>'
 				|| *p == '<'
+				|| *p == ';'
+				|| *p == '='
 			   ){
-			PRINT("DONE : 1str\n");
 			cur = new_token(TK_RESERVED , cur , p++ , 1 );
 		}
 		// 数値    : 数トークンを追加
 		else if( isdigit(*p) ){
-			PRINT("DONE : digit\n");
 			cur = new_token(TK_NUM , cur , p , 1 );
 			cur->val = strtol(p , &p , 0 );
+		}
+		else if( *p >= 'a' && *p <= 'z' ){
+			cur = new_token(TK_IDENT , cur , p++ , 1);
 		}
 		else{
 			error_at( p , "トークナイズできません");
