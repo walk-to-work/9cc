@@ -1,5 +1,28 @@
 #include "9cc.h"
 
+// 変数を名前で検索する。見つからなかった場合はNULLを返す。
+LVar *find_lvar( Token *tok ){
+	for( LVar *var = locals ; var ; var = var->next ){
+		PRINT("var->name:%s tok->str:%s\n" , var->name , tok->str);
+		if( var->len == tok ->len && !memcmp( tok->str , var->name , var->len )){
+			PRINT("done\n");
+			return var;
+		}
+	}
+	return NULL;
+}
+
+//変数名の長さを返す
+int get_var_length( char *p ){
+	int len = 0;
+	while ( *p >= 'a' && *p <= 'z'  ){
+		len++;
+		p++;
+	}
+	p -= len;
+	return len;
+}
+
 //次のトークンが期待している記号のときには，トークンを1つ読み進めて
 //真を返す．それ以外の場合には偽を返す．
 bool consume(char *op){
@@ -93,18 +116,19 @@ Token *tokenize( char *p ){
 			cur = new_token(TK_NUM , cur , p , 1 );
 			cur->val = strtol(p , &p , 0 );
 		}
-		else if( *p >= 'a' && *p <= 'z' ){
-			cur = new_token(TK_IDENT , cur , p++ , 1);
-		}
+		// 変数 又は エラー : 変数トークンを接続
 		else{
-			error_at( p , "トークナイズできません");
-		}
+			int len = get_var_length( p );
+			PRINT( "len:%d *p:%c\n" , len , *p);
+			if( len == 0 )
+				error_at( p , "トークナイズできません");
 
+			cur = new_token( TK_IDENT , cur , p , len );
+			p += len;
+		}
 	}
 
 	new_token( TK_EOF , cur , p , 0);
 	return head.next;
 }
-/*** トークナイザおわり ***/
-
 
