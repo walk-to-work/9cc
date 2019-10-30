@@ -29,6 +29,16 @@ struct Token{
 	int len;        //トークンの長さ
 };
 
+typedef struct LVar LVar;
+
+//ローカル変数の型
+struct LVar{
+	LVar *next;
+	char *name;
+	int   len;
+	int   offset;
+};
+
 bool consume(char *op);
 Token *consume_ident();
 void expect( char *op );
@@ -36,6 +46,7 @@ int expect_number();
 bool at_eof();
 Token *new_token( TokenKind kind , Token *cur , char *str , unsigned int len );
 Token *tokenize( char *p );
+LVar *find_lvar( Token *tok );
 
 /*** パーサ ***/
 typedef enum{
@@ -88,7 +99,8 @@ void error(char *fmt, ...);
 
 /*** グローバル変数 ***/
 char *user_input; // 入力プログラム
-Token *token;     //現在見ているトークン
-Node *code[100];
+Token *token;     // 現在見ているトークン
+Node *code[100];  // `;`で区切られたコードごとのノード
+LVar *locals;
 
 #endif

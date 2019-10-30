@@ -10,7 +10,10 @@ int main( int argc , char **argv ){
 	user_input = argv[1];
 	token = tokenize(user_input);
 
+	PRINT("done : tokenize\n");
+
 	program();
+	PRINT("done : program\n");
 
 	// アセンブリの前半部分を出力
 	printf(".intel_syntax noprefix\n");

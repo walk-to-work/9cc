@@ -1,5 +1,7 @@
 #include "9cc.h"
 
+bool  var_flag = 0;
+
 Node *new_node( NodeKind kind , Node *lhs , Node *rhs ){
 	PRINT("do: %s str:%s \n" ,  __FUNCTION__ , token->str );
 	Node *node = calloc( 1 , sizeof(Node));
@@ -130,9 +132,32 @@ Node *primary(){
 	if(tok){
 		Node *node = calloc( 1 , sizeof(Node) );
 		node->kind = ND_LVAR;
-		node->offset = (tok->str[0] - 'a' + 1 ) * 8;
-		return node;
+
+		LVar *lvar = find_lvar(tok);
+		if( lvar != NULL ){
+			PRINT("known var\n");
+			node->offset = lvar->offset;
+		}
+		else {
+			PRINT("new var\n");
+
+			lvar = calloc( 1 , sizeof( LVar ) );
+			lvar->next = locals;
+			lvar->name = tok->str;
+			lvar->len  = tok->len;
+
+			if( var_flag ){
+				lvar->offset = locals->offset + 8;
+				PRINT("not first\n");
+			}
+			else{
+				lvar->offset = 0;
+				var_flag = 1;
+				PRINT("first\n");
+			}
+			node->offset = lvar->offset;
+			locals = lvar;
+			return node;
+		}
 	}
 }
-
-
